@@ -580,7 +580,7 @@ function statsView(){
   const max=Math.max(1,...cur.map(e=>e[k]),...prev.map(e=>e[k]));
   const today=todayStr();const curMonth=year(today)===statYear?Number(today.slice(5,7))-1:-1;
   const bars=cur.map((e,i)=>{const p=prev[i];
-    const tag=i===hiM?' 최고':i===loM?' 최저':i===curMonth?' 진행 중':'';
+    const tag=i===curMonth?' 진행 중':'';
     return '<div class="bar"><span>'+(i+1)+'월</span><div class="trk"><div class="fil '+(i===hiM?'hi':i===loM?'lo':'')+'" style="width:'+(e[k]/max*100).toFixed(1)+'%"></div><div class="fil prev" style="width:'+(p[k]/max*100).toFixed(1)+'%"></div></div><span class="val">'+(e[dk]?fmt(e[k]):'-')+tag+'</span></div>'}).join('');
   const tot=a=>a.some(e=>e[dk])?fmt(a.reduce((t,e)=>t+e[k],0)):'-';
   const opts=yearsWithData().map(y=>'<option value="'+y+'"'+(y===statYear?' selected':'')+'>'+y+'년</option>').join('');
