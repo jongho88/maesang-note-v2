@@ -56,6 +56,7 @@ table.wk{width:100%;border-collapse:collapse;table-layout:fixed;line-height:28px
 .tot td{font-weight:600}
 .sheet.wide{padding:28px 6px 28px 8px;background-image:repeating-linear-gradient(to bottom,transparent 0,transparent 27px,var(--rule) 27px,var(--rule) 28px)}
 .wk.wk7{line-height:28px}
+.gapline{color:var(--down);font-size:13px;font-weight:600;margin:0;line-height:28px;background:#FCEBEB;padding:0 6px}
 .wkRange{margin-right:auto}
 .wsum{display:grid;grid-template-columns:auto minmax(0,1fr) minmax(0,1fr);column-gap:6px;line-height:28px;align-items:baseline;font-variant-numeric:tabular-nums}
 .wsum .wh{font-size:12px;color:var(--ink2);text-align:right;font-weight:600}
@@ -260,7 +261,14 @@ async function replaceAll(list,wl,el){
   await tx('weeks','readwrite',s=>{s.clear();wl.forEach(r=>s.put(r))});weeks=new Map(wl.map(r=>[r.date,r]))}
 const live=d=>{const r=recs.get(d);return r&&!r.deleted?r:null};
 const liveWeek=s=>{const w=weeks.get(s);return w&&!w.deleted?w:null};
-const covered=(d,f)=>{const k=liveWeek(mondayOf(d));return !!k&&d<=k.end&&k[f]!=null};
+/* A weekly value is used only until every Mon-Sat day of that week has its own daily value. */
+const wkDays=w=>{const o=[];for(let d=w.date;d<=w.end;d=addDays(d,1))if(dow(d)!==0)o.push(d);return o};
+const dayFull=(w,f)=>{const g=['cash','check','card'].includes(f)?'cents':f;const ds=wkDays(w);return ds.length>0&&ds.every(d=>{const r=live(d);return !!r&&r[g]!=null})};
+const ew=(w,f)=>w&&w[f]!=null&&!dayFull(w,f)?w[f]:null;
+function weekGaps(w){if(!w)return[];const out=[];
+  [['clothes','Clothes In'],['cents','Cash In'],['customers','손님 수']].forEach(([f,l])=>{if(w[f]==null||!dayFull(w,f))return;
+    const sum=wkDays(w).reduce((t,d)=>t+live(d)[f],0);if(sum!==w[f])out.push({f,l,sum,wk:w[f]})});return out}
+const covered=(d,f)=>{const k=liveWeek(mondayOf(d));return !!k&&d<=k.end&&ew(k,f)!=null};
 const anyCovered=d=>['cents','clothes','customers'].some(f=>covered(d,f));
 const liveWeeks=()=>[...weeks.values()].filter(w=>!w.deleted);
 async function snapshot(label){
@@ -398,8 +406,8 @@ const n2=c=>{if(c==null)return '';const big=Math.abs(c)>=1000000;return (big?Mat
 /* Week totals: a weekly record wins field by field; a total-only weekly record leaves Cash, Check and Card blank. */
 function weekTotals(dayRecs,w){
   const out={};const sum=f=>{const v=dayRecs.filter(r=>r&&r[f]!=null);return v.length?v.reduce((t,r)=>t+r[f],0):null};
-  FIELDS.forEach(f=>{out[f]=w&&w[f]!=null?w[f]:sum(f)});
-  if(w&&w.cents!=null&&w.cash==null){out.cash=out.check=out.card=null}
+  FIELDS.forEach(f=>{out[f]=ew(w,f)!=null?w[f]:sum(f)});
+  if(ew(w,'cents')!=null&&w.cash==null){out.cash=out.check=out.card=null}
   return out;
 }
 function weekSheet(){
@@ -420,7 +428,8 @@ function weekSheet(){
     +'<div class="wsum"><span></span><span class="wh">Clothes In</span><span class="wh ca">Cash In</span><span class="wl">'+(isNow?'이번 주':'이 주')+'</span><span class="wv">'+mv(T.clothes)+'</span><span class="wv ca" id="weekTotal">'+usd(shown)+'</span><span class="wl ly">작년</span><span class="wv ly">'+mv(P.clothes)+'</span><span class="wv ly ca">'+mv(P.cents)+'</span></div>'
     +'<p class="small">작년은 '+py+'년 '+md(lastYear(a))+'~'+md(lastYear(z))+'</p><div class="gap"></div>'
     +'<table class="wk wk7" aria-label="이번 주 Clothes In과 Cash In"><colgroup><col style="width:9%"><col style="width:16%"><col style="width:10%"><col style="width:16%"><col style="width:16%"><col style="width:16%"><col style="width:17%"></colgroup><thead><tr class="gr"><th colspan="3" class="lf">Clothes In</th><th colspan="4" class="ctr ca caH">Cash In</th></tr><tr><th class="lf">날짜</th><th>금액</th><th class="cu">손님</th><th class="ca">Cash</th><th class="ca">Check</th><th class="ca">Card</th><th class="ca">합계</th></tr></thead><tbody>'+rows+'</tbody></table>'
-    +(cw||pw?'<p class="small">합계 줄과 작년 줄에는 주간으로 입력한 값을 먼저 씁니다.</p>':'')+'</section>';
+    +weekGaps(cw).map(g=>'<p class="gapline">'+g.l+': 하루 합계 '+(g.f==='customers'?g.sum+'명':usd(g.sum))+' · 주간 값 '+(g.f==='customers'?g.wk+'명':usd(g.wk))+' · 차이 '+(g.f==='customers'?Math.abs(g.sum-g.wk)+'명':usd(Math.abs(g.sum-g.wk)))+'</p>').join('')
+    +(cw||pw?'<p class="small">6일을 모두 입력한 주는 하루 합계를, 아닌 주는 주간 값을 씁니다.</p>':'')+'</section>';
 }
 const sideName=()=>entrySide==='clothes'?'Clothes In':'Cash In';
 function formCard(){
@@ -461,16 +470,17 @@ function fillForm(){
 }
 function afterDay(date){if(date>=todayStr())return todayStr();let n=addDays(date,1);if(dow(n)===0&&!live(n))n=addDays(n,1);return n>todayStr()?todayStr():n}
 async function commitSide(date,vals){
+  const wkB=liveWeeks().find(w=>w.date<=date&&date<=w.end),before=gapKey(wkB);
   const old=recs.get(date)&&!recs.get(date).deleted?recs.get(date):null;
   const r={date,clothes:null,customers:null,cash:null,check:null,card:null,cents:null,...(old||{}),...vals,by:cfg.name||'',updatedAt:new Date().toISOString(),deleted:false,rej:old?old.rej||[]:[]};
   await putRec(r);recs.set(date,r);await changed();
-  weekStart=mondayOf(date);formDate=afterDay(date);render();toast(longDate(date)+' '+sideName()+' 저장했습니다');
+  weekStart=mondayOf(date);formDate=afterDay(date);render();toast(longDate(date)+' '+sideName()+' 저장했습니다');warnGap(wkB,before);
 }
 async function commitWeek(k,vals){
   const old=weeks.get(k.key);const base=old&&!old.deleted?old:{};
   const w={clothes:null,customers:null,cash:null,check:null,card:null,cents:null,...base,...vals,date:k.key,end:k.end,year:k.y,by:cfg.name||'',updatedAt:new Date().toISOString(),deleted:false,rej:old?old.rej||[]:[]};
   await tx('weeks','readwrite',t=>t.put(w));weeks.set(w.date,w);await changed();
-  weekStart=mondayOf(k.key);entryWeek=false;
+  weekStart=mondayOf(k.key);entryWeek=false;setTimeout(()=>warnGap(w,'[]'),0);
   const next=addDays(mondayOf(k.key),7);formDate=next>todayStr()?todayStr():next;
   render();toast(engRange(k.key,k.end)+' '+sideName()+' 주간 저장했습니다');
 }
@@ -483,28 +493,32 @@ async function clearSide(){
 }
 const valText=(v,f)=>f==='customers'?(v==null?'없음':v+'명'):(v==null?'없음':usd(v));
 const fLabel={clothes:'Clothes In',customers:'손님 수',cash:'Cash',check:'Check',card:'Card',cents:'Cash In 합계'};
-function submitEntry(){
+function submitEntry(zeroOk){
   const err=m=>{const e=$('fErr');e.textContent=m;e.hidden=false};
   const date=$('fDate').value;
   if(!validDate(date))return err('날짜를 고르세요.');
   if(date>todayStr())return err('오늘 이후 날짜는 입력할 수 없습니다.');
   const opt=id=>{const t=$(id).value.trim();if(t==='')return null;const v=parseMoney(t);return v===null?false:v};
-  let vals;
+  let vals,blank;
   if(entrySide==='clothes'){
-    const a=opt('fClothes');if(a===false||a===null)return err('매상을 숫자로 입력하세요. 예: 850.00');
+    const a0=opt('fClothes');if(a0===false)return err('매상을 숫자로 입력하세요. 예: 850.00');const a=a0===null?0:a0;
     const cs=$('fCust').value.trim();if(cs!==''&&!/^\d{1,6}$/.test(cs))return err('손님 수를 숫자로 입력하세요. 예: 24');
-    if(cs===''&&!entryWeek)return err('손님 수를 입력하세요. 예: 24');
-    vals={clothes:a,customers:cs===''?null:Number(cs)};
+    blank=a0===null&&cs==='';
+    vals={clothes:a,customers:cs===''?(entryWeek?null:0):Number(cs)};
   }else{
     const c=opt('fCash'),k=opt('fCheck'),d=opt('fCard');
     if(c===false||k===false||d===false)return err('금액을 숫자로 입력하세요. 예: 400.00');
     const anyS=c!==null||k!==null||d!==null;
     const tot=entryWeek?opt('fTotal'):null;if(tot===false)return err('합계를 숫자로 입력하세요. 예: 3606.44');
     if(anyS&&tot!==null)return err('Cash, Check, Card와 합계 중 하나만 입력하세요.');
-    if(!anyS&&tot===null)return err('금액을 입력하세요. 없는 칸은 비워 두면 0으로 저장합니다.');
+    blank=!anyS&&tot===null;
     vals=tot!==null?{cash:null,check:null,card:null,cents:tot}:{cash:c||0,check:k||0,card:d||0,cents:(c||0)+(k||0)+(d||0)};
   }
   $('fErr').hidden=true;
+  if(blank&&!zeroOk){
+    $('fConfirm').innerHTML='<div class="confirm"><div>모든 칸이 비어 있습니다. 0으로 저장할까요? (쉬는 날)</div><div class="btns"><button type="button" class="main" data-act="zero-yes">0으로 저장</button><button type="button" data-act="ow-no">취소</button></div></div>';
+    return;
+  }
   const wk=entryWeek?weekFor(date):null;const old=entryWeek?wk.rec:live(date);
   const ch=old?Object.keys(vals).filter(f=>old[f]!=null&&old[f]!==vals[f]&&!(f!=='cents'&&vals[f]==null&&vals.cents!=null)):[];
   if(ch.length){
@@ -526,14 +540,14 @@ function weeksOf(y){
     ['cents','clothes','customers'].forEach(f=>{if(r[f]!=null){e[f]+=r[f];e.n[f]++}});w.set(m,e)});
   liveWeeks().forEach(k=>{if(k.year!==y||(toUTC(k.end)-toUTC(k.date))/864e5<4)return;
     const e=w.get(k.date)||{start:k.date,end:k.end,cents:0,clothes:0,customers:0,n:{cents:0,clothes:0,customers:0},wk:{}};
-    e.end=k.end;['cents','clothes','customers'].forEach(f=>{if(k[f]!=null){e[f]=k[f];e.wk[f]=true}});w.set(k.date,e)});
+    e.end=k.end;['cents','clothes','customers'].forEach(f=>{if(ew(k,f)!=null){e[f]=k[f];e.wk[f]=true}});w.set(k.date,e)});
   return [...w.values()].map(e=>{const ok=f=>e.wk[f]||(addDays(e.start,5)<today&&e.n[f]>=4);return{...e,ok:{cents:ok('cents'),clothes:ok('clothes'),customers:ok('customers')}}});
 }
 function monthData(y){
   const a=Array.from({length:12},()=>({cents:0,clothes:0,customers:0,dcents:0,dclothes:0,dcustomers:0}));
   const F=['cents','clothes','customers'];
   recs.forEach(r=>{if(r.deleted||year(r.date)!==y)return;const e=a[Number(r.date.slice(5,7))-1];F.forEach(f=>{if(r[f]!=null&&!covered(r.date,f)){e[f]+=r[f];e['d'+f]++}})});
-  liveWeeks().forEach(w=>{if(w.year!==y)return;const ey=year(w.end);const i=ey===y?Number(w.end.slice(5,7))-1:ey>y?11:0;F.forEach(f=>{if(w[f]!=null){a[i][f]+=w[f];a[i]['d'+f]+=6}})});
+  liveWeeks().forEach(w=>{if(w.year!==y)return;const ey=year(w.end);const i=ey===y?Number(w.end.slice(5,7))-1:ey>y?11:0;F.forEach(f=>{if(ew(w,f)!=null){a[i][f]+=w[f];a[i]['d'+f]+=6}})});
   return a;
 }
 function monthDone(y,i){const t=todayStr();const next=i===11?(y+1)+'-01-01':y+'-'+pad(i+2)+'-01';return next<=t}
@@ -548,15 +562,15 @@ function yearSheet(){
   const t=todayStr(),ty=year(t),map=new Map();
   const get=y=>{if(!map.has(y))map.set(y,{val:0,customers:0,days:0,cdays:0,wks:0});return map.get(y)};
   recs.forEach(r=>{if(r.deleted)return;const e=get(year(r.date));if(r.customers!=null&&!covered(r.date,'customers')){e.customers+=r.customers;e.cdays++}if(r[K]!=null&&!covered(r.date,K)){e.val+=r[K];e.days++}});
-  liveWeeks().forEach(w=>{const e=get(w.year);if(w[K]!=null){e.val+=w[K];e.wks++}if(w.customers!=null){e.customers+=w.customers;e.cdays+=6}});
+  liveWeeks().forEach(w=>{const e=get(w.year);if(ew(w,K)!=null){e.val+=w[K];e.wks++}if(ew(w,'customers')!=null){e.customers+=w.customers;e.cdays+=6}});
   const ys=[...map.keys()].sort((a,b)=>b-a);
   if(!ys.length)return '<section class="sheet" id="yearSheet"><h2>연도별 매상</h2><p class="small">매상을 입력하면 연도별 합계가 나옵니다.</p></section>';
-  const matched=y=>{const mon=new Map();recs.forEach(r=>{if(r.deleted||r[K]==null||year(r.date)!==y)return;const m=mondayOf(r.date);if(liveWeek(m)&&liveWeek(m)[K]!=null)return;if(!mon.has(m))mon.set(m,[]);mon.get(m).push(r)});
+  const matched=y=>{const mon=new Map();recs.forEach(r=>{if(r.deleted||r[K]==null||year(r.date)!==y)return;const m=mondayOf(r.date);if(ew(liveWeek(m),K)!=null)return;if(!mon.has(m))mon.set(m,[]);mon.get(m).push(r)});
     let cur=0,pre=0,n=0;
     mon.forEach((rs,m)=>{const pw=liveWeek(lastYear(m));
-      if(pw&&pw[K]!=null){if(addDays(m,5)<t){rs.forEach(r=>{cur+=r[K]});pre+=pw[K];n++}else rs.forEach(r=>{const p=live(lastYear(r.date));if(p&&p[K]!=null){cur+=r[K];pre+=p[K];n++}});return}
+      if(ew(pw,K)!=null){if(addDays(m,5)<t){rs.forEach(r=>{cur+=r[K]});pre+=pw[K];n++}else rs.forEach(r=>{const p=live(lastYear(r.date));if(p&&p[K]!=null){cur+=r[K];pre+=p[K];n++}});return}
       rs.forEach(r=>{const p=live(lastYear(r.date));if(p&&p[K]!=null){cur+=r[K];pre+=p[K];n++}})});
-    liveWeeks().forEach(w=>{if(w.year===y&&w[K]!=null){const pw=liveWeek(lastYear(w.date));if(pw&&pw[K]!=null){cur+=w[K];pre+=pw[K];n++}}});
+    liveWeeks().forEach(w=>{if(w.year===y&&ew(w,K)!=null){const pw=liveWeek(lastYear(w.date));if(ew(pw,K)!=null){cur+=w[K];pre+=pw[K];n++}}});
     return n?{cur,pre}:null};
   const rows=ys.map(y=>{const e=map.get(y),prevE=map.get(y-1);let cmp=null;
     if(y===ty)cmp=matched(y);
@@ -753,6 +767,16 @@ function kpClick(){
     src.connect(f);f.connect(g);g.connect(kpAudio.destination);src.start();
   }catch(e){}
 }
+function gapSound(){
+  if(cfg.kpSound===false)return;
+  try{if(!kpAudio){kpClick.__init=true;const A=window.AudioContext||window.webkitAudioContext;if(!A)return;kpAudio=new A()}
+    if(kpAudio.state==='suspended')kpAudio.resume();const t=kpAudio.currentTime;
+    [[880,0],[660,0.16]].forEach(([hz,at])=>{const o=kpAudio.createOscillator(),g=kpAudio.createGain();o.type='sine';o.frequency.value=hz;g.gain.setValueAtTime(0.0001,t+at);g.gain.exponentialRampToValueAtTime(0.5,t+at+0.02);g.gain.exponentialRampToValueAtTime(0.0001,t+at+0.14);o.connect(g);g.connect(kpAudio.destination);o.start(t+at);o.stop(t+at+0.16)});
+  }catch(e){}
+}
+const gapKey=w=>JSON.stringify(weekGaps(w));
+function warnGap(w,before){const g=weekGaps(w);if(!g.length||gapKey(w)===before)return;gapSound();
+  toast(g.map(x=>x.l+' 하루 합계가 주간 값과 '+(x.f==='customers'?Math.abs(x.sum-x.wk)+'명':usd(Math.abs(x.sum-x.wk)))+' 다릅니다').join(' · '))}
 function kpPress(k){
   kpClick();
   const el=kp.el;if(!el||!document.body.contains(el))return kpClose();
@@ -812,6 +836,7 @@ document.addEventListener('click',async e=>{
     case 'wk-now':weekStart=mondayOf(todayStr());render();break;
     case 'ow-yes':if(pendingConfirm){const p=pendingConfirm;pendingConfirm=null;if(p.wk)commitWeek(p.wk,p.vals);else commitSide(p.date,p.vals)}break;
     case 'ow-no':fillForm();break;
+    case 'zero-yes':$('fConfirm').innerHTML='';submitEntry(true);break;
     case 'kp-sound':await setCfg('kpSound',cfg.kpSound===false);if(cfg.kpSound!==false)kpClick();render();break;
     case 'wk-toggle':entryWeek=!entryWeek;render();break;
     case 'del-ask':$('fConfirm').innerHTML='<div class="confirm"><div>'+esc(entryWeek?(k=>engRange(k.key,k.end)+' 주간')(weekFor(formDate)):longDate(formDate))+'의 '+sideName()+' 값을 삭제할까요?</div><div class="btns"><button type="button" class="danger" data-act="del-yes">삭제</button><button type="button" data-act="ow-no">취소</button></div></div>';break;
@@ -840,7 +865,7 @@ document.addEventListener('submit',async e=>{
   if(e.target.id==='nameForm'){const n=cleanName($('nameInput').value);if(!n){const x=$('nameErr');x.textContent='이름을 입력하세요.';x.hidden=false;return}await setCfg('name',n);render();toast('이름을 저장했습니다')}
 });
 document.addEventListener('change',e=>{
-  if(e.target.id==='fDate'&&validDate(e.target.value)){formDate=e.target.value;fillForm()}
+  if(e.target.id==='fDate'&&validDate(e.target.value)){formDate=e.target.value;const m=mondayOf(formDate);if(m!==weekStart){weekStart=m;render()}else fillForm()}
   if(e.target.dataset&&e.target.dataset.cat!==undefined)renameCat(+e.target.dataset.cat,e.target.value);
   if(e.target.id==='eDate'&&validDate(e.target.value)){
     const keep={d:e.target.value,a:$('eAmt').value,c:$('eCat').value,m:$('eMemo').value};

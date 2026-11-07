@@ -1,5 +1,5 @@
 // 앱 화면만 저장한다. 매상 기록은 건드리지 않는다. 앱을 고칠 때마다 숫자를 올린다.
-const CACHE = 'maesang-note-v2-22';
+const CACHE = 'maesang-note-v2-28';
 const FILES = ['./', 'index.html', 'manifest.webmanifest', 'icon-180.png', 'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', e => {
