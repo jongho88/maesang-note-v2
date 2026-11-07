@@ -842,7 +842,12 @@ document.addEventListener('submit',async e=>{
 document.addEventListener('change',e=>{
   if(e.target.id==='fDate'&&validDate(e.target.value)){formDate=e.target.value;fillForm()}
   if(e.target.dataset&&e.target.dataset.cat!==undefined)renameCat(+e.target.dataset.cat,e.target.value);
-  if(e.target.id==='eDate'&&validDate(e.target.value)&&!expEdit)expDate=e.target.value;
+  if(e.target.id==='eDate'&&validDate(e.target.value)){
+    const keep={d:e.target.value,a:$('eAmt').value,c:$('eCat').value,m:$('eMemo').value};
+    if(!expEdit)expDate=keep.d;
+    if(keep.d.slice(0,7)!==expMonth){expMonth=keep.d.slice(0,7);
+      render().then(()=>{if(!$('eDate'))return;$('eDate').value=keep.d;$('eAmt').value=keep.a;$('eCat').value=keep.c;$('eMemo').value=keep.m})}
+  }
   if(e.target.id==='statYear'){statYear=Number(e.target.value);render()}
   if(e.target.id==='filePick')handleFile(e.target.files[0]);
 });
