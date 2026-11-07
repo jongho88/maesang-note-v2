@@ -210,6 +210,7 @@ ol.how{margin:0;padding-left:20px;font-size:14px;display:flex;flex-direction:col
 <input type="file" id="filePick" hidden>
 <script>
 'use strict';
+const APP_VER='v2-30';
 const DOW=['일','월','화','수','목','금','토'];
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -710,6 +711,7 @@ function dataView(){
    +'<section class="card"><h2>두 사람 기록 맞추기</h2><div class="stack"><ol class="how"><li>입력한 사람이 <b>기록 보내기</b>를 눌러 파일을 문자나 카톡으로 보냅니다.</li><li>받은 사람은 파일을 휴대폰에 저장합니다.</li><li>받은 사람이 <b>받은 파일 합치기</b>를 눌러 그 파일을 고릅니다.</li></ol><p class="note">한 사람은 Clothes In, 다른 사람은 Cash In처럼 나눠 입력해도 같은 날짜로 합쳐집니다. 같은 칸의 값이 서로 다를 때만 어느 쪽을 쓸지 묻습니다. 지금 쓰시는 매상 노트의 백업 파일과 지난 기록 파일도 받은 파일 합치기로 넣습니다.</p><div class="btns"><button type="button" class="main" data-act="share">기록 보내기</button><button type="button" data-act="pick">받은 파일 합치기</button></div></div></section>'
    +'<section class="card"><h2>백업</h2><div class="stack"><p class="note">기록 '+count+'건'+(liveWeeks().length?' · 주간 기록 '+liveWeeks().length+'건':'')+(liveExps().length?' · 지출 '+liveExps().length+'건':'')+' · 마지막 백업 '+esc(when(cfg.lastBackupAt))+'</p><div class="btns"><button type="button" data-act="backup">휴대폰에 저장</button><button type="button" data-act="share">iCloud·구글 드라이브에 저장</button></div><p class="note">휴대폰 안에 저장한 파일은 휴대폰을 잃어버리면 함께 사라집니다. 가끔은 iCloud나 구글 드라이브에도 저장하세요. 새 휴대폰에서는 받은 파일 합치기로 백업 파일을 고르면 복원됩니다. 백업 파일은 엑셀에서도 열립니다.</p></div></section>'
    +'<section class="card"><h2>자동 복사본</h2><div class="stack"><p class="note">하루 한 번 이 휴대폰 안에 최근 14개까지 보관합니다. 실수로 잘못 고쳤을 때 되돌리는 용도입니다.</p><div id="restoreAsk"></div>'+(snaps?'<div class="list">'+snaps+'</div>':'<p class="note">아직 복사본이 없습니다. 기록을 입력하면 다음에 앱을 열 때 만들어집니다.</p>')+'</div></section>'
+   +'<p class="note" style="text-align:center">앱 버전 '+APP_VER+'</p>'
    +'<section class="card"><h2>키패드 소리</h2><div class="stack"><p class="note">키패드를 누를 때 딸깍 소리를 냅니다. 휴대폰이 무음이면 소리가 나지 않을 수 있습니다.</p><div class="btns"><button type="button" data-act="kp-sound" aria-pressed="'+(cfg.kpSound!==false)+'">'+(cfg.kpSound!==false?'소리 켜짐':'소리 꺼짐')+'</button></div></div></section>'
    +'<section class="card"><h2>앱 이름</h2><form id="appNameForm" class="stack" novalidate><label>맨 위에 표시될 이름<input id="appNameInput" autocomplete="off" maxlength="20" placeholder="매상 노트 2" value="'+esc(cfg.appName||'')+'"></label><p class="note">비워 두면 매상 노트 2로 돌아갑니다. 이 휴대폰에만 적용됩니다. 홈 화면 아이콘 이름은 아이콘을 추가할 때 정합니다.</p><div class="btns"><button type="submit">앱 이름 저장</button></div></form></section>'
    +'<section class="card"><h2>내 이름</h2><form id="nameForm" class="stack" novalidate><label>입력자로 표시될 이름<input id="nameInput" autocomplete="off" maxlength="20" value="'+esc(cfg.name||'')+'"></label><p class="err" id="nameErr" role="alert" hidden></p><div class="btns"><button type="submit">이름 저장</button></div></form></section>';
@@ -865,14 +867,7 @@ document.addEventListener('submit',async e=>{
   if(e.target.id==='nameForm'){const n=cleanName($('nameInput').value);if(!n){const x=$('nameErr');x.textContent='이름을 입력하세요.';x.hidden=false;return}await setCfg('name',n);render();toast('이름을 저장했습니다')}
 });
 document.addEventListener('change',e=>{
-  if(e.target.id==='fDate'&&validDate(e.target.value)){formDate=e.target.value;const m=mondayOf(formDate);if(m!==weekStart){weekStart=m;render()}else fillForm()}
   if(e.target.dataset&&e.target.dataset.cat!==undefined)renameCat(+e.target.dataset.cat,e.target.value);
-  if(e.target.id==='eDate'&&validDate(e.target.value)){
-    const keep={d:e.target.value,a:$('eAmt').value,c:$('eCat').value,m:$('eMemo').value};
-    if(!expEdit)expDate=keep.d;
-    if(keep.d.slice(0,7)!==expMonth){expMonth=keep.d.slice(0,7);
-      render().then(()=>{if(!$('eDate'))return;$('eDate').value=keep.d;$('eAmt').value=keep.a;$('eCat').value=keep.c;$('eMemo').value=keep.m})}
-  }
   if(e.target.id==='statYear'){statYear=Number(e.target.value);render()}
   if(e.target.id==='filePick')handleFile(e.target.files[0]);
 });
@@ -880,6 +875,24 @@ document.addEventListener('input',e=>{if(['fClothes','fCust','fCash','fCheck','f
 
 ['gesturestart','gesturechange','gestureend'].forEach(t=>document.addEventListener(t,e=>e.preventDefault(),{passive:false}));
 document.addEventListener('touchmove',e=>{if(e.touches.length>1)e.preventDefault()},{passive:false});
+/* Date pickers: react on every way a phone reports a new date, and redraw only the list below so the picker stays attached. */
+function onDatePick(el){
+  if(!validDate(el.value))return;
+  if(el.id==='fDate'){
+    if(el.value===formDate&&mondayOf(el.value)===weekStart)return;
+    formDate=el.value;const m=mondayOf(formDate);
+    if(m!==weekStart){weekStart=m;const old=document.querySelector('.sheet.wide');if(old)old.outerHTML=weekSheet()}
+    fillForm();
+  }else if(el.id==='eDate'){
+    if(!expEdit)expDate=el.value;
+    const mo=el.value.slice(0,7);if(mo===expMonth)return;expMonth=mo;
+    const t=document.createElement('div');t.innerHTML=expView();const fresh=t.querySelector('#expSheet'),old=$('expSheet');if(fresh&&old)old.replaceWith(fresh);
+  }
+}
+['input','change','blur'].forEach(ev=>document.addEventListener(ev,e=>{const el=e.target;if(el&&(el.id==='fDate'||el.id==='eDate'))onDatePick(el)},true));
+/* Keep a confirm or an error visible above the keypad. */
+function kpReveal(el){if(!el||!kp.open)return;requestAnimationFrame(()=>{const top=$('kp').getBoundingClientRect().top,r=el.getBoundingClientRect();if(r.bottom>top-12)scrollBy(0,r.bottom-top+12)})}
+new MutationObserver(()=>{['fConfirm','fErr','eConfirm','eErr'].forEach(id=>{const x=$(id);if(x&&!x.hidden&&x.textContent.trim())kpReveal(x)})}).observe(document.getElementById('view'),{subtree:true,childList:true,attributes:true,attributeFilter:['hidden']});
 let deferredInstall=null;
 addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredInstall=e;if(cfg.name)renderBanners()});
 if('serviceWorker'in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('sw.js').catch(()=>{});

@@ -1,9 +1,10 @@
 // 앱 화면만 저장한다. 매상 기록은 건드리지 않는다. 앱을 고칠 때마다 숫자를 올린다.
-const CACHE = 'maesang-note-v2-28';
+const CACHE = 'maesang-note-v2-30';
 const FILES = ['./', 'index.html', 'manifest.webmanifest', 'icon-180.png', 'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting()));
+  // cache: 'reload' skips the browser's own copy so a new upload is picked up right away
+  e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES.map(u => new Request(u, { cache: 'reload' })))).then(() => self.skipWaiting()));
 });
 self.addEventListener('activate', e => {
   e.waitUntil(caches.keys()
@@ -16,7 +17,7 @@ self.addEventListener('fetch', e => {
   e.respondWith(caches.open(CACHE).then(async c => {
     const key = req.mode === 'navigate' ? 'index.html' : req;
     const hit = await c.match(key);
-    const net = fetch(req).then(r => {
+    const net = fetch(req, { cache: 'no-cache' }).then(r => {
       if (r.ok) c.put(key, r.clone());
       return r;
     });
