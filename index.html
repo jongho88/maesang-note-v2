@@ -696,6 +696,7 @@ function dataView(){
    +'<section class="card"><h2>두 사람 기록 맞추기</h2><div class="stack"><ol class="how"><li>입력한 사람이 <b>기록 보내기</b>를 눌러 파일을 문자나 카톡으로 보냅니다.</li><li>받은 사람은 파일을 휴대폰에 저장합니다.</li><li>받은 사람이 <b>받은 파일 합치기</b>를 눌러 그 파일을 고릅니다.</li></ol><p class="note">한 사람은 Clothes In, 다른 사람은 Cash In처럼 나눠 입력해도 같은 날짜로 합쳐집니다. 같은 칸의 값이 서로 다를 때만 어느 쪽을 쓸지 묻습니다. 지금 쓰시는 매상 노트의 백업 파일과 지난 기록 파일도 받은 파일 합치기로 넣습니다.</p><div class="btns"><button type="button" class="main" data-act="share">기록 보내기</button><button type="button" data-act="pick">받은 파일 합치기</button></div></div></section>'
    +'<section class="card"><h2>백업</h2><div class="stack"><p class="note">기록 '+count+'건'+(liveWeeks().length?' · 주간 기록 '+liveWeeks().length+'건':'')+(liveExps().length?' · 지출 '+liveExps().length+'건':'')+' · 마지막 백업 '+esc(when(cfg.lastBackupAt))+'</p><div class="btns"><button type="button" data-act="backup">휴대폰에 저장</button><button type="button" data-act="share">iCloud·구글 드라이브에 저장</button></div><p class="note">휴대폰 안에 저장한 파일은 휴대폰을 잃어버리면 함께 사라집니다. 가끔은 iCloud나 구글 드라이브에도 저장하세요. 새 휴대폰에서는 받은 파일 합치기로 백업 파일을 고르면 복원됩니다. 백업 파일은 엑셀에서도 열립니다.</p></div></section>'
    +'<section class="card"><h2>자동 복사본</h2><div class="stack"><p class="note">하루 한 번 이 휴대폰 안에 최근 14개까지 보관합니다. 실수로 잘못 고쳤을 때 되돌리는 용도입니다.</p><div id="restoreAsk"></div>'+(snaps?'<div class="list">'+snaps+'</div>':'<p class="note">아직 복사본이 없습니다. 기록을 입력하면 다음에 앱을 열 때 만들어집니다.</p>')+'</div></section>'
+   +'<section class="card"><h2>키패드 소리</h2><div class="stack"><p class="note">키패드를 누를 때 딸깍 소리를 냅니다. 휴대폰이 무음이면 소리가 나지 않을 수 있습니다.</p><div class="btns"><button type="button" data-act="kp-sound" aria-pressed="'+(cfg.kpSound!==false)+'">'+(cfg.kpSound!==false?'소리 켜짐':'소리 꺼짐')+'</button></div></div></section>'
    +'<section class="card"><h2>앱 이름</h2><form id="appNameForm" class="stack" novalidate><label>맨 위에 표시될 이름<input id="appNameInput" autocomplete="off" maxlength="20" placeholder="매상 노트 2" value="'+esc(cfg.appName||'')+'"></label><p class="note">비워 두면 매상 노트 2로 돌아갑니다. 이 휴대폰에만 적용됩니다. 홈 화면 아이콘 이름은 아이콘을 추가할 때 정합니다.</p><div class="btns"><button type="submit">앱 이름 저장</button></div></form></section>'
    +'<section class="card"><h2>내 이름</h2><form id="nameForm" class="stack" novalidate><label>입력자로 표시될 이름<input id="nameInput" autocomplete="off" maxlength="20" value="'+esc(cfg.name||'')+'"></label><p class="err" id="nameErr" role="alert" hidden></p><div class="btns"><button type="submit">이름 저장</button></div></form></section>';
 }
@@ -737,7 +738,23 @@ function kpActivate(el){
 }
 function kpClose(){document.querySelectorAll('input.kpOn').forEach(x=>x.classList.remove('kpOn'));kp.el=null;kp.form=null;kpShow(false)}
 function kpAfterRender(){if(!kp.open)return;const form=kp.form&&$(kp.form);const list=form?kpFields(form):[];if(list.length)kpActivate(list[0]);else kpClose()}
+/* A short filtered tick, close to a phone keyboard click. Same sound for every key. */
+let kpAudio=null,kpBuf=null;
+function kpClick(){
+  if(cfg.kpSound===false)return;
+  try{
+    if(!kpAudio){const A=window.AudioContext||window.webkitAudioContext;if(!A)return;kpAudio=new A();
+      const n=Math.floor(kpAudio.sampleRate*0.012);kpBuf=kpAudio.createBuffer(1,n,kpAudio.sampleRate);const d=kpBuf.getChannelData(0);
+      for(let i=0;i<n;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/n,4)}
+    if(kpAudio.state==='suspended')kpAudio.resume();
+    const src=kpAudio.createBufferSource();src.buffer=kpBuf;
+    const f=kpAudio.createBiquadFilter();f.type='bandpass';f.frequency.value=3200;f.Q.value=1.2;
+    const g=kpAudio.createGain();g.gain.value=0.9;
+    src.connect(f);f.connect(g);g.connect(kpAudio.destination);src.start();
+  }catch(e){}
+}
 function kpPress(k){
+  kpClick();
   const el=kp.el;if(!el||!document.body.contains(el))return kpClose();
   if(k==='save'){el.form.requestSubmit();return}
   if(k==='L'||k==='R'){const list=kpFields(el.form),i=list.indexOf(el)+(k==='L'?-1:1);if(list[i])kpActivate(list[i]);return}
@@ -795,6 +812,7 @@ document.addEventListener('click',async e=>{
     case 'wk-now':weekStart=mondayOf(todayStr());render();break;
     case 'ow-yes':if(pendingConfirm){const p=pendingConfirm;pendingConfirm=null;if(p.wk)commitWeek(p.wk,p.vals);else commitSide(p.date,p.vals)}break;
     case 'ow-no':fillForm();break;
+    case 'kp-sound':await setCfg('kpSound',cfg.kpSound===false);if(cfg.kpSound!==false)kpClick();render();break;
     case 'wk-toggle':entryWeek=!entryWeek;render();break;
     case 'del-ask':$('fConfirm').innerHTML='<div class="confirm"><div>'+esc(entryWeek?(k=>engRange(k.key,k.end)+' 주간')(weekFor(formDate)):longDate(formDate))+'의 '+sideName()+' 값을 삭제할까요?</div><div class="btns"><button type="button" class="danger" data-act="del-yes">삭제</button><button type="button" data-act="ow-no">취소</button></div></div>';break;
     case 'del-yes':clearSide();break;
