@@ -175,6 +175,18 @@ button.tog[aria-pressed=true]{background:var(--pen-bg);color:#0C447C;border-colo
 nav.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--paper);border-top:1px solid var(--line);display:flex;justify-content:center;padding:0 env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px);z-index:5}
 nav.tabs button{flex:1;max-width:160px;border:0;background:none;border-radius:0;min-height:58px;font-size:14px;padding:0 4px;color:var(--ink2)}
 nav.tabs button[aria-current=page]{color:var(--pen);font-weight:600;box-shadow:inset 0 3px 0 var(--pen)}
+#kp{position:fixed;left:0;right:0;bottom:0;z-index:7;background:#E4E2DA;border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;padding:8px max(8px,env(safe-area-inset-right,0px)) calc(8px + env(safe-area-inset-bottom,0px)) max(8px,env(safe-area-inset-left,0px))}
+#kp button{height:52px;font-size:22px;font-weight:500;background:#fff;border:0;border-radius:8px;color:var(--ink);box-shadow:0 1px 0 #B4B2A9;touch-action:manipulation;-webkit-user-select:none;user-select:none}
+#kp button:active{background:#D3D1C7}
+#kp .kpSave{background:var(--pen);color:#fff;font-size:17px}
+#kp .kpSave:active{background:#163A69}
+#kp button.dim{opacity:.35}
+body.kp-open nav.tabs{display:none}
+body.kp-open .wrap{padding-bottom:calc(320px + env(safe-area-inset-bottom,0px))}
+body.kp-open #toast{bottom:calc(316px + env(safe-area-inset-bottom,0px))}
+input.kpIn{caret-color:transparent;cursor:pointer}
+input.kpOn{border:2px solid var(--pen);background:#F3F8FD}
+@media (max-height:700px){#kp button{height:44px}body.kp-open .wrap{padding-bottom:calc(280px + env(safe-area-inset-bottom,0px))}body.kp-open #toast{bottom:calc(276px + env(safe-area-inset-bottom,0px))}}
 #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(72px + env(safe-area-inset-bottom,0px));background:var(--ink);color:#fff;padding:9px 14px;border-radius:8px;font-size:14px;z-index:6;max-width:88vw;text-align:center}
 ol.how{margin:0;padding-left:20px;font-size:14px;display:flex;flex-direction:column;gap:6px}
 @media (min-width:520px){.sheet{padding-left:50px;padding-right:16px;background-image:linear-gradient(to right,transparent 39px,var(--margin) 39px,var(--margin) 40px,transparent 40px),repeating-linear-gradient(to bottom,transparent 0,transparent 27px,var(--rule) 27px,var(--rule) 28px)}.fields{grid-template-columns:repeat(4,minmax(0,1fr))}.fields .wide,.fields button{grid-column:auto}.wrap{padding-left:16px;padding-right:16px}}
@@ -192,6 +204,7 @@ ol.how{margin:0;padding-left:20px;font-size:14px;display:flex;flex-direction:col
   <button type="button" data-tab="stats">분석</button>
   <button type="button" data-tab="data">백업·합치기</button>
 </nav>
+<div id="kp" hidden role="group" aria-label="숫자 키패드"><button type="button" data-k="1">1</button><button type="button" data-k="2">2</button><button type="button" data-k="3">3</button><button type="button" data-k="4">4</button><button type="button" data-k="5">5</button><button type="button" data-k="6">6</button><button type="button" data-k="7">7</button><button type="button" data-k="8">8</button><button type="button" data-k="9">9</button><button type="button" data-k="00">00</button><button type="button" data-k="0">0</button><button type="button" data-k="del" aria-label="지우기">&#9003;</button><button type="button" id="kpL" data-k="L" aria-label="왼쪽 칸">&larr;</button><button type="button" class="kpSave" data-k="save">저장</button><button type="button" id="kpR" data-k="R" aria-label="오른쪽 칸">&rarr;</button></div>
 <div id="toast" role="status" hidden></div>
 <input type="file" id="filePick" hidden>
 <script>
@@ -412,7 +425,7 @@ function weekSheet(){
 const sideName=()=>entrySide==='clothes'?'Clothes In':'Cash In';
 function formCard(){
   const c=entrySide==='clothes',w=entryWeek;
-  const box=(id,l,ph,mode)=>'<label>'+l+'<input id="'+id+'" inputmode="'+(mode||'decimal')+'" autocomplete="off" placeholder="'+ph+'"></label>';
+  const box=(id,l,ph,mode)=>'<label>'+l+'<input id="'+id+'" class="kpIn" data-kp="'+(mode?'int':'money')+'" readonly inputmode="none" autocomplete="off" placeholder="'+ph+'"></label>';
   const fields=c?'<div class="f2">'+box('fClothes',w?'주간 매상':'매상','0.00')+box('fCust',w?'주간 손님 수 (선택)':'손님 수','0','numeric')+'</div>'
     :'<div class="f3">'+box('fCash','Cash','0.00')+box('fCheck','Check','0.00')+box('fCard','Card','0.00')+'</div>'+(w?'<div class="f1">'+box('fTotal','나눈 값을 모르면 합계만 입력','0.00')+'</div>':'');
   return '<section class="card"><div class="seg" role="group" aria-label="입력 종류"><button type="button" data-side="clothes" aria-pressed="'+c+'">Clothes In</button><button type="button" data-side="cash" aria-pressed="'+!c+'">Cash In</button></div><form id="entry" class="stack" novalidate><label>날짜<input id="fDate" type="date" max="'+todayStr()+'" value="'+formDate+'" required></label>'+fields+(c?'':'<p class="note" id="fSum"></p>')+'<div class="saverow"><button type="submit" class="main">저장</button><button type="button" class="wkTog" data-act="wk-toggle" aria-pressed="'+w+'">주간</button></div><p class="note" id="fInfo"></p><p class="err" id="fErr" role="alert" hidden></p><div id="fConfirm"></div></form></section>';
@@ -606,7 +619,7 @@ function expView(){
   const opts=[...new Set([...cats(),...(expEdit&&exps.get(expEdit)?[exps.get(expEdit).cat]:[])])].sort((x,y)=>x.localeCompare(y,'ko',{sensitivity:'base'})).map(c=>'<option value="'+esc(c)+'">'+esc(c)+'</option>').join('');
   const rows=list.map(x=>'<tr data-exp="'+esc(x.id)+'"><td>'+md(x.date)+'</td><td class="lft"><span class="ecat">'+esc(x.cat)+'</span>'+(x.memo?'<span class="mini">'+esc(x.memo)+'</span>':'')+'</td><td>'+usd(x.cents)+'</td></tr>').join('');
   const catRows=cats().map((c,i)=>'<div><input id="cat'+i+'" data-cat="'+i+'" value="'+esc(c)+'" maxlength="40" aria-label="항목 이름"><button type="button" class="mini danger" data-cat-del="'+i+'">빼기</button></div>').join('');
-  return '<section class="card"><h2>'+(expEdit?'지출 고치기':'지출 입력')+'</h2><form id="expForm" class="stack" novalidate><div class="fields"><label class="wide">날짜<input id="eDate" type="date" max="'+todayStr()+'"></label><label>금액 ($)<input id="eAmt" inputmode="decimal" autocomplete="off" placeholder="1200.00"></label><label>항목<select id="eCat">'+opts+'</select></label><label class="wide">메모 (선택)<input id="eMemo" autocomplete="off" maxlength="60" placeholder="11월분"></label><button type="submit" class="main" style="align-self:end">'+(expEdit?'고치기':'저장')+'</button></div><p class="note" id="eInfo"></p><p class="err" id="eErr" role="alert" hidden></p><div id="eConfirm"></div>'+(expEdit?'<div class="btns"><button type="button" data-act="exp-cancel">취소</button><button type="button" class="danger" data-act="exp-del-ask">삭제</button></div>':'')+'</form></section>'
+  return '<section class="card"><h2>'+(expEdit?'지출 고치기':'지출 입력')+'</h2><form id="expForm" class="stack" novalidate><div class="fields"><label class="wide">날짜<input id="eDate" type="date" max="'+todayStr()+'"></label><label>금액 ($)<input id="eAmt" class="kpIn" data-kp="money" readonly inputmode="none" autocomplete="off" placeholder="0.00"></label><label>항목<select id="eCat">'+opts+'</select></label><label class="wide">메모 (선택)<input id="eMemo" autocomplete="off" maxlength="60" placeholder="11월분"></label><button type="submit" class="main" style="align-self:end">'+(expEdit?'고치기':'저장')+'</button></div><p class="note" id="eInfo"></p><p class="err" id="eErr" role="alert" hidden></p><div id="eConfirm"></div>'+(expEdit?'<div class="btns"><button type="button" data-act="exp-cancel">취소</button><button type="button" class="danger" data-act="exp-del-ask">삭제</button></div>':'')+'</form></section>'
    +'<section class="sheet" id="expSheet"><div class="row navrow"><h2 style="white-space:nowrap">'+monthLabel(expMonth)+'</h2><span class="wkTotal" id="expTotal">'+usd(total)+'</span><div class="wkNav"><button type="button" class="mini" data-act="exp-prev" aria-label="이전 달">&#9664;&#xFE0E;</button><button type="button" class="mini" data-act="exp-next" aria-label="다음 달">&#9654;&#xFE0E;</button></div></div>'
    +(rows?'<table class="wk wkd exl" aria-label="지출 내역"><thead><tr><th style="width:17%">날짜</th><th class="lft" style="width:55%">항목</th><th style="width:28%">금액</th></tr></thead><tbody>'+rows+'</tbody></table><p class="small">줄을 누르면 고치거나 지울 수 있습니다.</p>':'<p class="small">이 달에 입력한 지출이 없습니다. 위에서 첫 지출을 넣어 보세요.</p>')+'</section>'
    +'<section class="card"><details'+(cats().length<=12?' open':'')+'><summary class="catSum">항목 관리 ('+cats().length+'개)</summary><div class="stack" style="margin-top:10px"><div class="list catlist">'+catRows+'</div><p class="note">이름을 고치면 이미 입력한 지출의 항목 이름도 함께 바뀝니다. 항목을 빼도 이미 입력한 지출은 그대로 남습니다.</p><p class="err" id="catErr" role="alert" hidden></p><form id="catForm" class="btns" novalidate><input id="catNew" maxlength="40" placeholder="새 항목 이름" aria-label="새 항목 이름" style="flex:2 1 150px"><button type="submit">항목 추가</button></form></div></details></section>';
@@ -708,7 +721,48 @@ async function render(){
   else if(tab==='stats'){v.innerHTML=statsView()}
   else if(tab==='exp'){v.innerHTML=expView();fillExp()}
   else{snapList=await tx('snapshots','readonly',s=>s.getAll());v.innerHTML=dataView()}
+  kpAfterRender();
 }
+/* ---------- card-terminal keypad: money fills from the right, arrows move between fields ---------- */
+const kp={open:false,form:null,el:null};
+const kpFields=form=>[...form.querySelectorAll('input.kpIn')];
+function kpShow(on){kp.open=on;document.body.classList.toggle('kp-open',on);$('kp').hidden=!on}
+function kpActivate(el){
+  document.querySelectorAll('input.kpOn').forEach(x=>x.classList.remove('kpOn'));
+  kp.el=el;kp.form=el.form?el.form.id:null;el.classList.add('kpOn');kpShow(true);
+  const list=kpFields(el.form),i=list.indexOf(el);
+  $('kpL').classList.toggle('dim',i<=0);$('kpR').classList.toggle('dim',i>=list.length-1);
+  requestAnimationFrame(()=>{const top=$('kp').getBoundingClientRect().top,r=el.getBoundingClientRect(),head=document.querySelector('.apphead').getBoundingClientRect().bottom;
+    if(r.bottom>top-12)scrollBy(0,r.bottom-top+12);else if(r.top<head+8)scrollBy(0,r.top-head-8)});
+}
+function kpClose(){document.querySelectorAll('input.kpOn').forEach(x=>x.classList.remove('kpOn'));kp.el=null;kp.form=null;kpShow(false)}
+function kpAfterRender(){if(!kp.open)return;const form=kp.form&&$(kp.form);const list=form?kpFields(form):[];if(list.length)kpActivate(list[0]);else kpClose()}
+function kpPress(k){
+  const el=kp.el;if(!el||!document.body.contains(el))return kpClose();
+  if(k==='save'){el.form.requestSubmit();return}
+  if(k==='L'||k==='R'){const list=kpFields(el.form),i=list.indexOf(el)+(k==='L'?-1:1);if(list[i])kpActivate(list[i]);return}
+  const money=el.dataset.kp==='money';
+  let d=money?(()=>{const c=parseMoney(el.value||'');return c?String(c):''})():String(el.value||'').replace(/\D/g,'');
+  if(k==='del')d=d.slice(0,-1);else d=(d+k).replace(/^0+(?=\d)/,'');
+  if(d.length>(money?9:6))return;
+  el.value=d===''?'':money?(Number(d)/100).toFixed(2):String(Number(d));
+  el.dispatchEvent(new Event('input',{bubbles:true}));
+}
+document.addEventListener('click',e=>{
+  const inp=e.target.closest&&e.target.closest('input.kpIn');
+  if(inp){kpActivate(inp);return}
+  const k=e.target.closest&&e.target.closest('#kp button');
+  if(k){kpPress(k.dataset.k);return}
+  if(!kp.open)return;
+  if(e.target.closest('#fDate,#eDate,#eCat,#eMemo,#catNew'))return kpClose();
+  if(e.target.closest('#entry')&&e.target.closest('.card')||e.target.closest('.card')&&e.target.closest('.card').querySelector('#entry,#expForm'))return;
+  kpClose();
+},true);
+document.addEventListener('focusin',e=>{if(kp.open&&e.target.matches&&e.target.matches('#fDate,#eDate,#eCat,#eMemo,#catNew,#nameInput,#appNameInput'))kpClose()});
+document.addEventListener('keydown',e=>{if(!kp.open)return;
+  if(/^\d$/.test(e.key))kpPress(e.key);else if(e.key==='Backspace')kpPress('del');else if(e.key==='Enter')kpPress('save');
+  else if(e.key==='ArrowLeft')kpPress('L');else if(e.key==='ArrowRight')kpPress('R');else if(e.key==='Escape')kpClose();else return;
+  e.preventDefault()});
 function welcome(){
   $('tabs').hidden=true;
   $('view').innerHTML='<section class="card"><h2>매상 노트 2 시작하기</h2><form id="firstForm" class="stack" novalidate><p class="note">매상과 손님 수를 작년 같은 요일과 비교합니다. 기록은 이 휴대폰에만 저장되고, 가입은 필요 없습니다.</p><label>입력자로 표시될 이름<input id="firstName" autocomplete="off" maxlength="20" placeholder="종호"></label><p class="err" id="firstErr" role="alert" hidden></p><button type="submit" class="main">시작하기</button></form></section>';
