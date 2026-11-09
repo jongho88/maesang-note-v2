@@ -149,8 +149,16 @@ button.tog[aria-pressed=true]{background:var(--pen-bg);color:#0C447C;border-colo
 .btns{display:flex;gap:8px;flex-wrap:wrap}
 .btns>button{flex:1 1 130px}
 .wkTotal{font-size:17px;font-weight:600;color:var(--pen);margin-right:auto;white-space:nowrap}
-.wkNav{display:flex;gap:6px}
-.wkNav>button{flex:0 0 auto;padding:0 10px;min-width:34px}
+.wkNav{display:flex;gap:14px;margin-left:10px}
+.wkNav>button{flex:0 0 auto;padding:0 8px;min-width:44px;min-height:40px}
+.sheet.wide .navrow{gap:0}
+#expSheet .wkTotal{margin-left:10px;margin-right:auto;font-size:15px;white-space:nowrap}
+#expSheet .navrow{gap:0}
+#expSheet .navrow h2{font-size:15px}
+.navrow>.wkBack{margin-right:10px;min-height:40px;padding:0 10px}
+.navrow>.wkRange{font-size:15px;min-width:0}
+@media (max-width:380px){.wkNav{gap:12px;margin-left:8px}.navrow .yr{font-size:12px;font-weight:400;color:var(--ink2)}}
+@media (max-width:340px){.navrow .yr{display:none}}
 .navrow{flex-wrap:nowrap}
 @media (max-width:379px){.pastT{display:none}}
 .wkBack{flex:none;white-space:nowrap;color:var(--pen);border-color:#85B7EB;background:var(--pen-bg);padding:0 8px}
@@ -210,7 +218,7 @@ ol.how{margin:0;padding-left:20px;font-size:14px;display:flex;flex-direction:col
 <input type="file" id="filePick" hidden>
 <script>
 'use strict';
-const APP_VER='v2-30';
+const APP_VER='v2-32';
 const DOW=['일','월','화','수','목','금','토'];
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -425,7 +433,7 @@ function weekSheet(){
   const isNow=weekStart===mondayOf(today);
   const shown=T.cents==null?0:T.cents;
   const mv=c=>c==null?'-':usd(c);
-  return '<section class="sheet wide"><div class="row navrow"><h2 class="wkRange" style="white-space:nowrap">'+y+'년 '+md(a)+'~'+md(z)+'</h2><div class="wkNav"><button type="button" class="mini" data-act="wk-prev" aria-label="이전 주">&#9664;&#xFE0E;</button>'+(isNow?'':'<button type="button" class="mini wkBack" data-act="wk-now" aria-label="이번 주로 돌아가기">현재</button>')+'<button type="button" class="mini" data-act="wk-next" aria-label="다음 주">&#9654;&#xFE0E;</button></div></div>'
+  return '<section class="sheet wide"><div class="row navrow"><button type="button" class="mini wkBack" data-act="wk-now" aria-label="이번 주로 돌아가기"'+(isNow?' style="visibility:hidden" tabindex="-1" aria-hidden="true"':'')+'>현재</button><h2 class="wkRange" style="white-space:nowrap"><span class="yr">'+y+'년 </span>'+md(a)+'~'+md(z)+'</h2><div class="wkNav"><button type="button" class="mini" data-act="wk-prev" aria-label="이전 주">&#9664;&#xFE0E;</button><button type="button" class="mini" data-act="wk-next" aria-label="다음 주">&#9654;&#xFE0E;</button></div></div>'
     +'<div class="wsum"><span></span><span class="wh">Clothes In</span><span class="wh ca">Cash In</span><span class="wl">'+(isNow?'이번 주':'이 주')+'</span><span class="wv">'+mv(T.clothes)+'</span><span class="wv ca" id="weekTotal">'+usd(shown)+'</span><span class="wl ly">작년</span><span class="wv ly">'+mv(P.clothes)+'</span><span class="wv ly ca">'+mv(P.cents)+'</span></div>'
     +'<p class="small">작년은 '+py+'년 '+md(lastYear(a))+'~'+md(lastYear(z))+'</p><div class="gap"></div>'
     +'<table class="wk wk7" aria-label="이번 주 Clothes In과 Cash In"><colgroup><col style="width:9%"><col style="width:16%"><col style="width:10%"><col style="width:16%"><col style="width:16%"><col style="width:16%"><col style="width:17%"></colgroup><thead><tr class="gr"><th colspan="3" class="lf">Clothes In</th><th colspan="4" class="ctr ca caH">Cash In</th></tr><tr><th class="lf">날짜</th><th>금액</th><th class="cu">손님</th><th class="ca">Cash</th><th class="ca">Check</th><th class="ca">Card</th><th class="ca">합계</th></tr></thead><tbody>'+rows+'</tbody></table>'
@@ -635,7 +643,7 @@ function expView(){
   const rows=list.map(x=>'<tr data-exp="'+esc(x.id)+'"><td>'+md(x.date)+'</td><td class="lft"><span class="ecat">'+esc(x.cat)+'</span>'+(x.memo?'<span class="mini">'+esc(x.memo)+'</span>':'')+'</td><td>'+usd(x.cents)+'</td></tr>').join('');
   const catRows=cats().map((c,i)=>'<div><input id="cat'+i+'" data-cat="'+i+'" value="'+esc(c)+'" maxlength="40" aria-label="항목 이름"><button type="button" class="mini danger" data-cat-del="'+i+'">빼기</button></div>').join('');
   return '<section class="card"><h2>'+(expEdit?'지출 고치기':'지출 입력')+'</h2><form id="expForm" class="stack" novalidate><div class="fields"><label class="wide">날짜<input id="eDate" type="date" max="'+todayStr()+'"></label><label>금액 ($)<input id="eAmt" class="kpIn" data-kp="money" readonly inputmode="none" autocomplete="off" placeholder="0.00"></label><label>항목<select id="eCat">'+opts+'</select></label><label class="wide">메모 (선택)<input id="eMemo" autocomplete="off" maxlength="60" placeholder="11월분"></label><button type="submit" class="main" style="align-self:end">'+(expEdit?'고치기':'저장')+'</button></div><p class="note" id="eInfo"></p><p class="err" id="eErr" role="alert" hidden></p><div id="eConfirm"></div>'+(expEdit?'<div class="btns"><button type="button" data-act="exp-cancel">취소</button><button type="button" class="danger" data-act="exp-del-ask">삭제</button></div>':'')+'</form></section>'
-   +'<section class="sheet" id="expSheet"><div class="row navrow"><h2 style="white-space:nowrap">'+monthLabel(expMonth)+'</h2><span class="wkTotal" id="expTotal">'+usd(total)+'</span><div class="wkNav"><button type="button" class="mini" data-act="exp-prev" aria-label="이전 달">&#9664;&#xFE0E;</button><button type="button" class="mini" data-act="exp-next" aria-label="다음 달">&#9654;&#xFE0E;</button></div></div>'
+   +'<section class="sheet" id="expSheet"><div class="row navrow"><h2 style="white-space:nowrap">'+monthLabel(expMonth).replace(/^(\d+년 )/,'<span class="yr">$1</span>')+'</h2><span class="wkTotal" id="expTotal">'+usd(total)+'</span><div class="wkNav"><button type="button" class="mini" data-act="exp-prev" aria-label="이전 달">&#9664;&#xFE0E;</button><button type="button" class="mini" data-act="exp-next" aria-label="다음 달">&#9654;&#xFE0E;</button></div></div>'
    +(rows?'<table class="wk wkd exl" aria-label="지출 내역"><thead><tr><th style="width:17%">날짜</th><th class="lft" style="width:55%">항목</th><th style="width:28%">금액</th></tr></thead><tbody>'+rows+'</tbody></table><p class="small">줄을 누르면 고치거나 지울 수 있습니다.</p>':'<p class="small">이 달에 입력한 지출이 없습니다. 위에서 첫 지출을 넣어 보세요.</p>')+'</section>'
    +'<section class="card"><details'+(cats().length<=12?' open':'')+'><summary class="catSum">항목 관리 ('+cats().length+'개)</summary><div class="stack" style="margin-top:10px"><div class="list catlist">'+catRows+'</div><p class="note">이름을 고치면 이미 입력한 지출의 항목 이름도 함께 바뀝니다. 항목을 빼도 이미 입력한 지출은 그대로 남습니다.</p><p class="err" id="catErr" role="alert" hidden></p><form id="catForm" class="btns" novalidate><input id="catNew" maxlength="40" placeholder="새 항목 이름" aria-label="새 항목 이름" style="flex:2 1 150px"><button type="submit">항목 추가</button></form></div></details></section>';
 }
